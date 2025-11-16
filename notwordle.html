@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wordle Game</title>
+  <script src="https://cdn.tailwindcss.com "></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    .animate-scaleIn {
+      animation: scaleIn 0.3s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex flex-col items-center justify-center p-4 transition-colors duration-300">
+
+  <header class="mb-4 text-center">
+    <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-2">Wordle</h1>
+    <p class="text-gray-600 dark:text-gray-300">Guess the 5-letter word in 6 tries</p>
+    <button onclick="showStatsModal()" class="mt-2 px-4 py-1 text-sm rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200">
+      View Stats
+    </button>
+  </header>
+
+  <main class="flex flex-col items-center">
+    <!-- Word grid -->
+    <div id="grid" class="grid gap-2 mb-6"></div>
+
+    <!-- On-screen keyboard -->
+    <div class="max-w-md mt-8">
+      <div class="grid grid-cols-10 gap-1 mb-1">
+        <!-- Row 1 -->
+        <!-- Generated via JS -->
+      </div>
+      <div class="grid grid-cols-9 gap-1 mb-1 ml-4">
+        <!-- Row 2 -->
+      </div>
+      <div class="grid grid-cols-12 gap-1">
+        <!-- Row 3 -->
+      </div>
+      <div class="mt-4 flex justify-center">
+        <button onclick="submitGuess()" id="enter-button" disabled class="px-6 py-2 rounded font-medium text-white bg-gray-400 cursor-not-allowed transition-all duration-200 transform active:scale-95">
+          Enter
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Game Over Modal -->
+  <div id="game-over-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-10 animate-fadeIn">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full shadow-xl transform transition-all animate-scaleIn">
+      <h2 id="game-result-title" class="text-2xl font-bold mb-4 text-center">Congratulations!</h2>
+      <p id="game-result-message" class="text-center mb-6">You guessed the word in X tries!</p>
+      <div class="flex justify-center">
+        <button onclick="restartGame()" class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium transition-all duration-200 transform active:scale-95">
+          Play Again
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Modal -->
+  <div id="stats-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-20 animate-fadeIn">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full shadow-xl transform transition-all animate-scaleIn">
+      <h2 class="text-2xl font-bold mb-4 text-center">Your Stats</h2>
+      <div class="grid grid-cols-3 gap-4 text-center mb-6">
+        <div><div id="games-played" class="text-2xl font-bold">0</div><div class="text-sm text-gray-600 dark:text-gray-300">Played</div></div>
+        <div><div id="win-percent" class="text-2xl font-bold">0%</div><div class="text-sm text-gray-600 dark:text-gray-300">Win %</div></div>
+        <div><div id="current-streak" class="text-2xl font-bold">0</div><div class="text-sm text-gray-600 dark:text-gray-300">Current Streak</div></div>
+        <div><div id="max-streak" class="text-2xl font-bold">0</div><div class="text-sm text-gray-600 dark:text-gray-300">Max Streak</div></div>
+        <div><div id="wins-count" class="text-2xl font-bold">0</div><div class="text-sm text-gray-600 dark:text-gray-300">Wins</div></div>
+        <div><div id="losses-count" class="text-2xl font-bold">0</div><div class="text-sm text-gray-600 dark:text-gray-300">Losses</div></div>
+      </div>
+
+      <h3 class="font-bold mb-2">Guess Distribution</h3>
+      <div id="guess-distribution" class="space-y-1">
+        <!-- Filled by JS -->
+      </div>
+
+      <div class="mt-6 flex justify-center">
+        <button onclick="hideStatsModal()" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-all">
+          Close
+        </button>
+        <button onclick="resetStats()" class="ml-3 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-all">
+          Reset Stats
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+    <p>Press keys on your keyboard or use the on-screen keyboard</p>
+  </footer>
+
+  <script>
+    const wordList = [
+      "about", "above", "abuse", "actor", "acute", "admit", "adopt", "adult", "after",
+      "again", "agent", "agree", "ahead", "alarm", "album", "alert", "alike", "alive",
+      "allow", "alone", "along", "alter", "among", "anger", "angle", "angry", "apart",
+      "apple", "apply", "arena", "argue", "arise", "arrive", "arrow", "aside", "asset",
+      "audio", "audit", "avoid", "award", "aware", "badly", "baker", "bases", "basic",
+      "basis", "beach", "began", "begin", "begun", "being", "below", "bench", "billy",
+      "black", "blame", "blind", "block", "blood", "board", "boost", "booth", "bound",
+      "brain", "brand", "bread", "break", "breed", "brief", "bring", "broad", "build",
+      "built", "buyer", "cable", "calif", "carry", "catch", "cause", "chain", "chair",
+      "chart", "chase", "cheap", "check", "chest", "chief", "child", "chose", "claim",
+      "class", "clean", "clear", "click", "clock", "close", "coach", "coast", "could",
+      "count", "court", "cover", "craft", "crash", "cream", "crime", "cross", "crowd",
+      "crown", "curve", "cycle", "daily", "dance", "dated", "dealt", "death", "debug",
+      "decay", "delay", "depth", "devil", "digit", "dirty", "disco", "doubt", "dozen",
+      "draft", "drama", "drawn", "dream", "dress", "drill", "drink", "drive", "drove",
+      "dying", "eager", "early", "earth", "eight", "elite", "empty", "enemy", "enjoy",
+      "enter", "entry", "equal", "error", "every", "exact", "exist", "extra", "faint",
+      "faith", "false", "fault", "fiber", "field", "fifth", "fifty", "fight", "final",
+      "first", "fixed", "fleet", "floor", "fluid", "focus", "force", "forth", "forty",
+      "found", "frame", "frank", "fraud", "fresh", "front", "fruit", "fully", "funny",
+      "giant", "given", "glass", "globe", "going", "grace", "grade", "grand", "grant",
+      "grass", "great", "green", "group", "grown", "guard", "guess", "guest", "guide",
+      "happy", "hardy", "harry", "heart", "heavy", "hello", "helps", "hence", "horse",
+      "hotel", "house", "human", "ideal", "image", "index", "inner", "input", "issue",
+      "joint", "judge", "juice", "known", "label", "large", "laser", "later", "laugh",
+      "layer", "learn", "lease", "least", "leave", "legal", "level", "lewis", "light",
+      "limit", "links", "liquid", "lists", "local", "logic", "loose", "lower", "lucky",
+      "lunch", "lying", "magic", "major", "maker", "march", "match", "maybe", "mayor",
+      "meant", "media", "metal", "might", "minor", "model", "money", "month", "moral",
+      "motor", "mount", "mouse", "mouth", "movie", "music", "needs", "never", "newly",
+      "night", "noise", "north", "noted", "novel", "nurse", "occur", "ocean", "offer",
+      "often", "order", "other", "ought", "paint", "panel", "paper", "party", "peace",
+      "peter", "phase", "phone", "photo", "piece", "place", "plain", "plane", "plant",
+      "plate", "point", "polar", "pound", "power", "press", "price", "pride", "prime",
+      "print", "prior", "prize", "proof", "proud", "prove", "queen", "quick", "quiet",
+      "quite", "radio", "raise", "range", "rapid", "rarely", "rather", "reach", "ready",
+      "refer", "right", "river", "robin", "robot", "rocky", "round", "route", "royal",
+      "rugby", "ruled", "rules", "sales", "sally", "sample", "scale", "scene", "scope",
+      "score", "sense", "serve", "seven", "shall", "shape", "share", "sharp", "sheet",
+      "shelf", "shell", "shift", "shirt", "shock", "shoot", "short", "shown", "sight",
+      "since", "sixth", "sixty", "skill", "sleep", "smile", "smith", "smoke", "solve",
+      "sound", "south", "space", "spare", "speak", "speed", "spend", "spoon", "sport",
+      "staff", "stage", "stake", "stand", "start", "state", "steam", "steel", "stick",
+      "still", "stock", "stone", "stood", "store", "storm", "story", "strip", "study",
+      "stuff", "style", "sugar", "suite", "super", "sweet", "table", "taken", "taste",
+      "taxed", "taxes", "teach", "tears", "tennis", "terms", "terry", "thank", "theft",
+      "their", "theme", "there", "these", "thick", "thing", "think", "third", "those",
+      "three", "throw", "tight", "times", "tired", "title", "today", "topic", "total",
+      "touch", "tower", "track", "trade", "train", "treat", "trial", "trick", "truck",
+      "truly", "trust", "truth", "twice", "uncle", "under", "union", "unity", "until",
+      "upper", "upset", "urban", "usage", "usual", "valid", "value", "video", "visit",
+      "vital", "voice", "waste", "water", "wheel", "where", "which", "while", "white",
+      "whole", "whose", "wider", "woman", "women", "world", "worry", "worse", "worst",
+      "worth", "would", "write", "wrong", "wrote"
+    ];
+
+    const validWordsSet = new Set(wordList.map(word => word.toLowerCase()));
+
+    // Load stats
+    function loadStats() {
+      const saved = localStorage.getItem('wordleStats');
+      return saved ? JSON.parse(saved) : {
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        currentStreak: 0,
+        maxStreak: 0,
+        guessesDistribution: [0, 0, 0, 0, 0, 0],
+      };
+    }
+
+    let stats = loadStats();
+    let showStats = false;
+
+    let currentGuess = '';
+    let guesses = Array(6).fill('').map(() => Array(5).fill(''));
+    let gameStatus = 'playing'; // playing, won, lost
+    let targetWord = wordList[Math.floor(Math.random() * wordList.length)].toLowerCase();
+    let keyboardState = {};
+
+    const keyRows = [
+      ['q','w','e','r','t','y','u','i','o','p'],
+      ['a','s','d','f','g','h','j','k','l'],
+      ['z','x','c','v','b','n','m']
+    ];
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      guesses.forEach((row, rowIndex) => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'flex gap-2';
+        row.forEach((cell, cellIndex) => {
+          const active = rowIndex === guesses.findIndex(r => r.every(c => c === ''));
+          const filled = cell !== '';
+          const letter = active && currentGuess[cellIndex] ? currentGuess[cellIndex] : cell;
+
+          let status = null;
+          if (rowIndex < guesses.findIndex(r => r.every(c => c === ''))) {
+            status = getLetterStatus(letter, cellIndex, targetWord.split(''));
+          }
+
+          const cellDiv = document.createElement('div');
+          cellDiv.className = `relative w-12 h-12 md:w-16 md:h-16 flex items-center justify-center rounded-md text-2xl font-bold uppercase ${getStatusColor(status)}`;
+          cellDiv.textContent = letter;
+
+          if (active && cellIndex === currentGuess.length) {
+            const cursor = document.createElement('span');
+            cursor.className = 'absolute animate-pulse w-1 h-8 bg-black';
+            cellDiv.appendChild(cursor);
+          }
+
+          rowDiv.appendChild(cellDiv);
+        });
+        grid.appendChild(rowDiv);
+      });
+    }
+
+    function getLetterStatus(letter, position, targetArray) {
+      if (letter === targetArray[position]) return 'correct';
+      else if (targetArray.includes(letter)) return 'present';
+      else return 'absent';
+    }
+
+    function getStatusColor(status) {
+      switch(status) {
+        case 'correct': return 'bg-green-500 text-white';
+        case 'present': return 'bg-yellow-500 text-white';
+        case 'absent': return 'bg-gray-500 text-white';
+        default: return 'bg-white border border-gray-300 text-black';
+      }
+    }
+
+    function updateKeyboardState(guessArray, targetArray) {
+      guessArray.forEach((letter, index) => {
+        const status = getLetterStatus(letter, index, targetArray);
+        if (!keyboardState[letter] || status === 'correct') {
+          keyboardState[letter] = status;
+        }
+      });
+    }
+
+    function submitGuess() {
+      if (currentGuess.length !== 5 ) return;
+
+      const emptyRow = guesses.findIndex(row => row.every(cell => cell === ''));
+      if (emptyRow === -1) return;
+
+      const newGuesses = [...guesses];
+      newGuesses[emptyRow] = currentGuess.split('');
+      guesses = newGuesses;
+
+      updateKeyboardState(newGuesses[emptyRow], targetWord.split(''));
+
+      if (currentGuess === targetWord) {
+        gameStatus = 'won';
+        updateStats(true, emptyRow + 1);
+        showGameOver(`You guessed the word in ${emptyRow + 1} tries!`);
+      } else if (emptyRow === guesses.length - 1) {
+        gameStatus = 'lost';
+        updateStats(false);
+        showGameOver(`The word was "${targetWord.toUpperCase()}"`, true);
+      }
+
+      currentGuess = '';
+      renderGrid();
+      updateEnterButton();
+    }
+
+    function updateStats(isWin, attempts = 0) {
+      const updatedStats = {...stats};
+      updatedStats.gamesPlayed += 1;
+
+      if (isWin) {
+        updatedStats.wins += 1;
+        updatedStats.currentStreak += 1;
+        updatedStats.guessesDistribution[attempts - 1] += 1;
+      } else {
+        updatedStats.losses += 1;
+        updatedStats.currentStreak = 0;
+      }
+
+      if (updatedStats.currentStreak > updatedStats.maxStreak) {
+        updatedStats.maxStreak = updatedStats.currentStreak;
+      }
+
+      stats = updatedStats;
+      localStorage.setItem('wordleStats', JSON.stringify(stats));
+      updateStatsModal();
+    }
+
+    function restartGame() {
+      targetWord = wordList[Math.floor(Math.random() * wordList.length)].toLowerCase();
+      guesses = Array(6).fill('').map(() => Array(5).fill(''));
+      currentGuess = '';
+      keyboardState = {};
+      gameStatus = 'playing';
+      document.getElementById('game-over-modal').classList.add('hidden');
+      updateEnterButton();
+      renderGrid();
+    }
+
+    function updateEnterButton() {
+      const btn = document.getElementById('enter-button');
+      btn.disabled = currentGuess.length !== 5 || gameStatus !== 'playing';
+      btn.className = currentGuess.length === 5 && gameStatus === 'playing'
+        ? 'px-6 py-2 rounded font-medium text-white bg-blue-500 hover:bg-blue-600 transition-all duration-200 transform active:scale-95'
+        : 'px-6 py-2 rounded font-medium text-white bg-gray-400 cursor-not-allowed';
+    }
+
+    function showGameOver(message, isLoss = false) {
+      document.getElementById('game-result-message').textContent = message;
+      document.getElementById('game-result-title').textContent = isLoss ? 'Game Over' : 'Congratulations!';
+      document.getElementById('game-over-modal').classList.remove('hidden');
+    }
+
+    function updateStatsModal() {
+      document.getElementById('games-played').textContent = stats.gamesPlayed;
+      document.getElementById('win-percent').textContent = Math.round((stats.wins / Math.max(1, stats.gamesPlayed)) * 100) + '%';
+      document.getElementById('current-streak').textContent = stats.currentStreak;
+      document.getElementById('max-streak').textContent = stats.maxStreak;
+      document.getElementById('wins-count').textContent = stats.wins;
+      document.getElementById('losses-count').textContent = stats.losses;
+
+      const distContainer = document.getElementById('guess-distribution');
+      distContainer.innerHTML = '';
+      stats.guessesDistribution.forEach((val, i) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center';
+        div.innerHTML = `
+          <div class="w-12 text-right mr-2">${i+1}</div>
+          <div class="flex-1 bg-gray-200 rounded h-6 overflow-hidden">
+            <div class="bg-blue-500 h-full" style="width:${Math.max(1, val * 10)}%"></div>
+          </div>
+          <div class="ml-2 w-6 text-right">${val}</div>
+        `;
+        distContainer.appendChild(div);
+      });
+    }
+
+    function resetStats() {
+      stats = {
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        currentStreak: 0,
+        maxStreak: 0,
+        guessesDistribution: [0, 0, 0, 0, 0, 0],
+      };
+      localStorage.setItem('wordleStats', JSON.stringify(stats));
+      updateStatsModal();
+    }
+
+    function showStatsModal() {
+      updateStatsModal();
+      document.getElementById('stats-modal').classList.remove('hidden');
+    }
+
+    function hideStatsModal() {
+      document.getElementById('stats-modal').classList.add('hidden');
+    }
+
+    function handleKeyDown(e) {
+      if (gameStatus !== 'playing') return;
+      if (/^[a-zA-Z]$/.test(e.key) && currentGuess.length < 5) {
+        currentGuess += e.key.toLowerCase();
+        updateEnterButton();
+        renderGrid();
+      } else if (e.key === 'Backspace') {
+        currentGuess = currentGuess.slice(0, -1);
+        updateEnterButton();
+        renderGrid();
+      } else if (e.key === 'Enter') {
+        submitGuess();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Initialize keyboard buttons
+    function createKeyButtons() {
+      const row1 = document.querySelectorAll('.grid.grid-cols-10')[0];
+      const row2 = document.querySelectorAll('.grid.grid-cols-9')[0];
+      const row3 = document.querySelectorAll('.grid.grid-cols-12')[0];
+
+      keyRows[0].forEach(letter => {
+        const btn = document.createElement('button');
+        btn.textContent = letter;
+        btn.className = 'py-2 px-3 rounded uppercase font-medium text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-black dark:text-white transition-all duration-200 transform active:scale-95';
+        btn.onclick = () => {
+          if (currentGuess.length < 5) {
+            currentGuess += letter;
+            updateEnterButton();
+            renderGrid();
+          }
+        };
+        row1.appendChild(btn);
+      });
+
+      keyRows[1].forEach(letter => {
+        const btn = document.createElement('button');
+        btn.textContent = letter;
+        btn.className = 'py-2 px-3 rounded uppercase font-medium text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-black dark:text-white transition-all duration-200 transform active:scale-95';
+        btn.onclick = () => {
+          if (currentGuess.length < 5) {
+            currentGuess += letter;
+            updateEnterButton();
+            renderGrid();
+          }
+        };
+        row2.appendChild(btn);
+      });
+
+      keyRows[2].forEach(letter => {
+        if (letter === 'z') {
+          const btn = document.createElement('button');
+          btn.textContent = letter;
+          btn.className = 'col-span-2 py-2 px-3 rounded uppercase font-medium text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-black dark:text-white transition-all duration-200 transform active:scale-95';
+          btn.onclick = () => {
+            if (currentGuess.length < 5) {
+              currentGuess += letter;
+              updateEnterButton();
+              renderGrid();
+            }
+          };
+          row3.appendChild(btn);
+        } else if (letter === 'backspace') {
+          const btn = document.createElement('button');
+          btn.textContent = '←';
+          btn.className = 'col-span-2 py-2 px-3 rounded font-medium text-sm bg-gray-300 hover:bg-gray-400 transition-all duration-200 transform active:scale-95';
+          btn.onclick = () => {
+            currentGuess = currentGuess.slice(0, -1);
+            updateEnterButton();
+            renderGrid();
+          };
+          row3.appendChild(btn);
+        } else {
+          const btn = document.createElement('button');
+          btn.textContent = letter;
+          btn.className = 'py-2 px-3 rounded uppercase font-medium text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-black dark:text-white transition-all duration-200 transform active:scale-95';
+          btn.onclick = () => {
+            if (currentGuess.length < 5) {
+              currentGuess += letter;
+              updateEnterButton();
+              renderGrid();
+            }
+          };
+          row3.appendChild(btn);
+        }
+      });
+    }
+
+    // Initial render
+    createKeyButtons();
+    renderGrid();
+    updateStatsModal();
+  </script>
+</body>
+</html>
